@@ -1,76 +1,168 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { loginAPI, verifyOTPAPI, resendOTPAPI } from "@/lib/api";
 
 type User = {
-  id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  role: string;
+  username: string;
+  is_online: boolean;
+  is_staff: boolean;
+  can_create: boolean;
+  can_retrieve: boolean;
 };
 
 type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
+  isMfaPending: boolean;
   isLoading: boolean;
+  pendingEmail: string | null;
+  error: string | null;
   login: (email: string, password: string) => Promise<void>;
+  verifyOTP: (otp: string) => Promise<void>;
+  resendOTP: () => Promise<void>;
   logout: () => void;
-  completeOTP: () => void;
+  clearError: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function setCookie(name: string, value: string, days = 7) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+function removeCookie(name: string) {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [mfaRequired, setMfaRequired] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     const userData = localStorage.getItem("user");
+
     if (token && userData) {
       try {
-        setUser(JSON.parse(userData));
+        const parsed = JSON.parse(userData);
+        setUser(parsed);
+        setCookie("auth_token", token);
       } catch {
         localStorage.removeItem("access_token");
         localStorage.removeItem("user");
       }
     }
+
+    const pending = localStorage.getItem("pending_email");
+    if (pending) {
+      setPendingEmail(pending);
+    }
+
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, _password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setMfaRequired(true);
-    localStorage.setItem("pending_email", email);
-    setIsLoading(false);
-  };
+    setError(null);
+    try {
+      await loginAPI(email, password);
+      localStorage.setItem("pending_email", email);
+      setCookie("pending_email", email);
+      setPendingEmail(email);
+      router.push("/otp");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [router]);
 
-  const completeOTP = () => {
+  const verifyOTP = useCallback(async (otp: string) => {
+    setIsLoading(true);
+    setError(null);
     const email = localStorage.getItem("pending_email");
-    const mockUser: User = {
-      id: "1",
-      name: email?.split("@")[0] || "User",
-      email: email || "",
-      role: "Treasury Manager",
-    };
-    localStorage.setItem("access_token", "mock-jwt-token-" + Date.now());
-    localStorage.setItem("user", JSON.stringify(mockUser));
-    localStorage.removeItem("pending_email");
-    setUser(mockUser);
-    setMfaRequired(false);
-  };
+    if (!email) {
+      setError("No pending login session. Please sign in again.");
+      setIsLoading(false);
+      router.push("/");
+      return;
+    }
+    try {
+      const res = await verifyOTPAPI(otp);
+      const { access_token, refresh_token, ...userData } = res.data;
 
-  const logout = () => {
+      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("refresh_token", refresh_token);
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.removeItem("pending_email");
+
+      setCookie("auth_token", access_token);
+      removeCookie("pending_email");
+
+      setUser(userData);
+      setPendingEmail(null);
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "OTP verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [router]);
+
+  const resendOTP = useCallback(async () => {
+    setError(null);
+    const email = localStorage.getItem("pending_email");
+    if (!email) {
+      setError("No pending login session. Please sign in again.");
+      return;
+    }
+    try {
+      await resendOTPAPI(email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend OTP");
+    }
+  }, []);
+
+  const logout = useCallback(() => {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
+    localStorage.removeItem("expires_at");
+    localStorage.removeItem("pending_email");
+    removeCookie("auth_token");
+    removeCookie("pending_email");
     setUser(null);
-  };
+    setPendingEmail(null);
+    router.push("/");
+  }, [router]);
+
+  const clearError = useCallback(() => setError(null), []);
 
   return (
-    (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, completeOTP }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isMfaPending: !!pendingEmail && !user,
+        isLoading,
+        pendingEmail,
+        error,
+        login,
+        verifyOTP,
+        resendOTP,
+        logout,
+        clearError,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

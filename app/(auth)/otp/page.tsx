@@ -1,6 +1,39 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthContext";
 import { OTPForm } from "@/components/OTPForm";
 
 export default function OTPPage() {
+  const { isAuthenticated, isMfaPending, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (isAuthenticated) {
+      router.replace("/dashboard");
+    } else if (!isMfaPending) {
+      router.replace("/");
+    }
+  }, [isAuthenticated, isMfaPending, isLoading, router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex items-center gap-3">
+          <svg className="animate-spin h-5 w-5 text-primary" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <span className="text-on-surface-variant">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated || !isMfaPending) return null;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-background">
       <div className="fixed inset-0 z-0">
@@ -17,7 +50,7 @@ export default function OTPPage() {
             <h1 className="text-headline-md font-bold text-primary tracking-tight">ES Payment</h1>
           </div>
           <p className="text-on-surface-variant text-body-sm tracking-wide uppercase text-xs opacity-70">
-            Institutional Terminal • Secure Access
+            Admin Console • Secure Access
           </p>
         </div>
 

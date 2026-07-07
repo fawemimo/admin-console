@@ -18,7 +18,7 @@ export function Sidebar() {
           <div>
             <h1 className="text-headline-md font-bold text-on-primary">ES Payment</h1>
             <p className="text-[10px] uppercase tracking-widest text-on-primary-fixed-variant font-bold">
-              Institutional Terminal
+              Admin Console
             </p>
           </div>
         </div>

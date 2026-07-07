@@ -10,10 +10,10 @@ const kycSubmissions = [
 ];
 
 const webhooks = [
-  { event: "payment.success", timestamp: "2023-10-28 14:22:05", code: "200 OK", ok: true },
-  { event: "kyc.verified", timestamp: "2023-10-28 14:21:40", code: "200 OK", ok: true },
-  { event: "transfer.failed", timestamp: "2023-10-28 14:18:12", code: "400 Error", ok: false },
-  { event: "payout.created", timestamp: "2023-10-28 14:15:33", code: "201 Created", ok: true },
+  { user: "John Doe", amount: 23.45,event: "payment.success", timestamp: "2023-10-28 14:22:05", code: "200 OK", ok: true },
+  { user: "Jane Smith", amount: 150.00, event: "kyc.verified", timestamp: "2023-10-28 14:21:40", code: "200 OK", ok: true },
+  { user: "Bob Johnson", amount: 50.00, event: "transfer.failed", timestamp: "2023-10-28 14:18:12", code: "400 Error", ok: false },
+  { user: "Alice Williams", amount: 100.00, event: "payout.created", timestamp: "2023-10-28 14:15:33", code: "201 Created", ok: true },
 ];
 
 const transactions = [
@@ -112,16 +112,20 @@ export default function DashboardPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface-container-low">
+                <th className="px-4 py-3 text-label-md font-bold text-on-surface-variant uppercase tracking-wider">User</th>
                 <th className="px-4 py-3 text-label-md font-bold text-on-surface-variant uppercase tracking-wider">Event Type</th>
                 <th className="px-4 py-3 text-label-md font-bold text-on-surface-variant uppercase tracking-wider">Timestamp</th>
-                <th className="px-4 py-3 text-label-md font-bold text-on-surface-variant uppercase tracking-wider">HTTP Code</th>
+                <th className="px-4 py-3 text-label-md font-bold text-on-surface-variant uppercase tracking-wider">Amount</th>
+                <th className="px-4 py-3 text-label-md font-bold text-on-surface-variant uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {webhooks.map((item) => (
                 <tr key={item.event + item.timestamp} className="hover:bg-surface-container-low transition-colors">
-                  <td className="px-4 py-3 data-font text-body-sm font-bold text-primary">{item.event}</td>
+                  <td className="px-4 py-3 data-font text-body-sm font-bold text-primary">{item.user}</td>
+                  <td className="px-4 py-3 text-body-sm text-on-surface-variant ">{item.event}</td>
                   <td className="px-4 py-3 text-body-sm text-on-surface-variant">{item.timestamp}</td>
+                  <td className="px-4 py-3 text-body-sm text-on-surface-variant">${item.amount.toFixed(2)}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold data-font border ${
                       item.ok

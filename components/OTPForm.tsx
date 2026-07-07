@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { useAuth } from "@/components/AuthContext";
 
 export function OTPForm() {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
@@ -9,6 +10,7 @@ export function OTPForm() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { verifyOTP, resendOTP, isLoading, error: authError, clearError } = useAuth();
 
   useEffect(() => {
     if (timeLeft <= 0) return;
@@ -26,11 +28,12 @@ export function OTPForm() {
     newOtp[index] = value;
     setOtp(newOtp);
     setError(false);
+    clearError();
 
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
-  }, [otp]);
+  }, [otp, clearError]);
 
   const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
@@ -50,19 +53,22 @@ export function OTPForm() {
     inputRefs.current[focusIndex]?.focus();
   }, [otp]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = otp.join("");
     if (code.length === 6) {
       setShowSuccess(true);
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 2500);
+      await verifyOTP(code);
     } else {
       setError(true);
       setTimeout(() => setError(false), 500);
     }
   };
+
+  const handleResend = useCallback(async () => {
+    setTimeLeft(120);
+    await resendOTP();
+  }, [resendOTP]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -70,6 +76,13 @@ export function OTPForm() {
   return (
     <>
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {authError && (
+          <div className="p-3 bg-error-container text-on-error-container rounded-lg text-body-sm flex items-start gap-2">
+            <Icon name="error" className="mt-0.5 shrink-0" />
+            <span>{authError}</span>
+          </div>
+        )}
+
         <div className="flex justify-between gap-1 md:gap-2" id="otp-inputs">
           {otp.map((digit, index) => (
             <input
@@ -85,6 +98,7 @@ export function OTPForm() {
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={index === 0 ? handlePaste : undefined}
+              disabled={isLoading}
             />
           ))}
         </div>
@@ -100,6 +114,7 @@ export function OTPForm() {
           <button
             type="button"
             disabled={timeLeft > 0}
+            onClick={handleResend}
             className="text-primary font-label-md hover:underline disabled:opacity-30 disabled:no-underline transition-all"
           >
             Resend Code
@@ -108,10 +123,23 @@ export function OTPForm() {
 
         <button
           type="submit"
-          className="w-full h-14 bg-secondary text-white font-label-md tracking-wider uppercase rounded-lg hover:bg-secondary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
+          disabled={isLoading}
+          className="w-full h-14 bg-secondary text-white font-label-md tracking-wider uppercase rounded-lg hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 group"
         >
-          <span>Verify & Continue</span>
-          <Icon name="arrow_forward_ios" className="text-[20px] group-hover:translate-x-1 transition-transform" />
+          {isLoading ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Verifying...
+            </span>
+          ) : (
+            <>
+              <span>Verify & Continue</span>
+              <Icon name="arrow_forward_ios" className="text-[20px] group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
         </button>
       </form>
 

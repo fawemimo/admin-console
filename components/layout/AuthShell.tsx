@@ -24,7 +24,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
             <h1 className="text-headline-md font-bold text-primary tracking-tight">ES Payment</h1>
           </div>
           <p className="text-on-surface-variant text-body-sm tracking-wide uppercase text-xs opacity-70">
-            Institutional Terminal • Secure Access
+            Admin Console • Secure Access
           </p>
         </div>
 
